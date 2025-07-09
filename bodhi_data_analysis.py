@@ -158,11 +158,12 @@ class Data_analysis:
             for group in df[col].unique():
                 group_data = df[var][df[col] == group]
                 mean = float(np.mean(group_data))
+                n = len(group_data)
                 std = float(np.std(group_data))
                 variance = float(np.var(group_data))
                 median = float(np.median(group_data))
                 mode = float(group_data.mode().iloc[0]) if not group_data.mode().empty else None
-                results.append({'Group': name,'Category': group,'Mean': mean,
+                results.append({'Group': name,'Category': group,'Number': n,'Mean': mean,
                     'Std Dev': std,'Variance': variance,'Median': median,'Mode': mode,
                     'F-statistic': f_stat,'p-value': p_value})
         results_df = pd.DataFrame(results)
@@ -194,11 +195,12 @@ class Data_analysis:
             for group in df[col].unique():
                 group_data = df[var][df[col] == group]
                 mean = float(np.mean(group_data))
+                n = len(group_data)
                 std = float(np.std(group_data))
                 variance = float(np.var(group_data))
                 median = float(np.median(group_data))
                 mode = float(group_data.mode().iloc[0]) if not group_data.mode().empty else None
-                results.append({'Group': name,'Category': group,'Mean': mean,
+                results.append({'Group': name,'Category': group,'Number': n,'Mean': mean,
                     'Std Dev': std,'Variance': variance,'Median': median,'Mode': mode,
                     'T-statistic': t_stat,'p-value': p_value})
         results_df = pd.DataFrame(results)
@@ -227,25 +229,73 @@ class Data_analysis:
                     group_data = group_data.iloc[:, 0]
                 group_data = pd.to_numeric(group_data, errors='coerce')
                 group_data = group_data.dropna()
+                n = len(group_data)
                 mean = float(np.mean(group_data))
                 std = float(np.std(group_data))
                 variance = float(np.var(group_data))
                 median = float(np.median(group_data))
                 mode = float(group_data.mode().iloc[0]) if not group_data.mode().empty else None
-                results.append({'Group': name,'Category': group,'Mean': mean,
+                results.append({'Group': name,'Category': group,'Number': n,'Mean': mean,
                     'Std Dev': std,'Variance': variance,'Median': median,'Mode': mode,
                     'Chi-Square Statistic': chi2_stat,'p-value': p_value})
                 
         results_df = pd.DataFrame(results)
         return results_df
     
+    def stats_table(self, df, indep_col, indep_name, var):
+        """
+        This function calculates basic statistics
+        
+        Parameters:
+        - df (pd.DataFrame): The dataset (DataFrame)
+        - var (str): The variable to analyze (continuous variable)
+        - indep_col (list): The variables to group by (categorical variables)
+        """
+        results = []
+    
+        all_mean   = df[var].mean()
+        all_std    = df[var].std()
+        all_median = df[var].median()
+        all_min    = df[var].min()
+        all_max    = df[var].max()
+        all_sum    = df[var].sum()
+    
+        for col, name in zip(indep_col, indep_name):
+            for group in df[col].dropna().unique():
+                group_data = df.loc[df[col] == group, var]
+    
+                # 그룹별 통계
+                n         = len(group_data)
+                mean      = group_data.mean()
+                std       = group_data.std()
+                variance  = group_data.var()
+                median    = group_data.median()
+                mode      = group_data.mode().iloc[0] if not group_data.mode().empty else None
+    
+                results.append({
+                    'Group'           : name,
+                    'Category'        : group,
+                    'Number'          : n,
+                    'Mean'            : mean,
+                    'Std Dev'         : std,
+                    'Variance'        : variance,
+                    'Median'          : median,
+                    'Mode'            : mode,
+                    'Overall Mean'    : all_mean,
+                    'Overall Std Dev' : all_std,
+                    'Overall Median'  : all_median,
+                    'Overall Min'     : all_min,
+                    'Overall Max'     : all_max,
+                    'Total'           : all_sum
+                })
+    
+        return pd.DataFrame(results)
+    
     def statistical_test(self, file_path, folder):
-        """
-        - Run the statistical tests
-        """
         for indicator in self.indicators:
             if indicator.s_test is not None:
                 sheet_name = indicator.indicator_name
+                print(f"{indicator.indicator_name} - Testing")
                 var_name = indicator.description
                 df = indicator.df
                 var = indicator.var
@@ -258,6 +308,8 @@ class Data_analysis:
                     s_df = self.t_test_table(df, indep_col, indep_name, var)
                 elif indicator.s_test == 'anova':
                     s_df = self.anova_table(df, indep_col, indep_name, var)
+                elif indicator.s_test == 'stats':
+                    s_df = self.stats_table(df, indep_col, indep_name, var)
                 elif indicator.s_test == 'ols':
                     model_stats_df, coeff_df, diagnostics_df = self.ols_table(df, indep_col, var)
                     
@@ -266,7 +318,7 @@ class Data_analysis:
                         model_stats_df.to_excel(writer, sheet_name=sheet_name, index=True, header=True)
                         startrow = model_stats_df.shape[0] + 2
                         coeff_df.to_excel(writer, sheet_name=sheet_name, startrow=startrow, index=True, header=True)
-                        startrow = coeff_df.shape[0] + startrow + 2
+                        startrow = coeff_df.shape[0] + startrow+ 2
                         diagnostics_df.to_excel(writer, sheet_name=sheet_name, startrow=startrow, index=True, header=True)
                     else: s_df.to_excel(writer, sheet_name=sheet_name, index=True, header=True)
                     
@@ -287,76 +339,87 @@ class Data_analysis:
                     adjusted_width = (max_length + 2)
                     ws.column_dimensions[column_letter].width = adjusted_width
         
-                wb.save(file_path)           
+                wb.save(file_path)          
             
 
-    def tables(self, file_path, folder):
+    def tables(self, indicator, var, sheet_name, var_name, file_path, folder):
         """
         - To generate tables including both general and breakdown data and related plots
         file_path: str, Directory where tables files will be saved
         folder: str, Folder where plots will be saved
         """        
-        for indicator in self.indicators:
-            if indicator.s_test is None:
-                sheet_name = indicator.indicator_name
-                var_name = indicator.description
-                df = indicator.df
-                var = indicator.var
-                if indicator.breakdown != None:
-                    dis_cols = list(indicator.breakdown.keys())
-                else: dis_cols = None
-                dfs = {}
-                book = load_workbook(file_path)
+        df = indicator.df
+        if indicator.s_test is None:
+            if indicator.breakdown != None:
+                dis_cols = list(indicator.breakdown.keys())
+            else: dis_cols = None
+            dfs = {}
+            book = load_workbook(file_path)
                 
-                try:
-                    if indicator.var_order is not None:
-                        for var_ in var:
-                            df[var_] = df[var_].astype('category')
-                            df[var_] = df[var_].cat.set_categories(indicator.var_order, ordered=True)
-                except (KeyError, ValueError) as e:
-                    print("")
+            try:
+                if indicator.var_order is not None:
+                    for var_ in var:
+                        df[var_] = df[var_].astype('category')
+                        df[var_] = df[var_].cat.set_categories(indicator.var_order, ordered=True)
+            except (KeyError, ValueError) as e:
+                print("")
                 
+            if indicator.var_type == 'single':
                 overall_df = self.count(df, var, index_name=indicator.indicator_name)
-                self.plot_bar(indicator, overall_df, folder) 
+                if indicator.visual == True:
+                    self.plot_bar(indicator, overall_df, folder) 
+                        
+            elif indicator.var_type == 'multi':
+                if indicator.var_change != None:
+                    change = list(indicator.var_change.values())
+                    overall_df = self.multi_table(df, indicator.var, 
+                                  categories = indicator.var_order, column_labels = indicator.kap_label, index_name = var_name, change=change)
+                else:
+                    overall_df = self.multi_table(df, indicator.var, 
+                        categories = indicator.var_order, column_labels = indicator.kap_label, index_name = var_name)
                     
-                if dis_cols != None:
-                    melted = df.melt(id_vars=dis_cols, value_vars=var, var_name=' ', value_name='category_value')
-                    for col, i in zip(dis_cols, range(len(dis_cols))):
-                        count_df = melted.groupby(['category_value', col]).size().unstack(fill_value=0)
+            if dis_cols != None:
+                melted = df.melt(id_vars=dis_cols, value_vars=var, var_name=' ', value_name='category_value')
+                for col, i in zip(dis_cols, range(len(dis_cols))):
+                    count_df = melted.groupby(['category_value', col]).size().unstack(fill_value=0)
+                    if (indicator.visual == True) & (indicator.var_type != 'multi'):
                         self.breakdown_count_bar(indicator, count_df, col, folder)
-                        percent_df = round(count_df.div(count_df.sum(axis=0), axis=1) * 100, 2)
+                    percent_df = round(count_df.div(count_df.sum(axis=0), axis=1) * 100, 2)
+                    if (indicator.visual == True) & (indicator.var_type != 'multi'):
                         self.breakdown_percentage_bar(indicator, percent_df, col, folder)
-                        f_df = pd.concat([count_df, percent_df.add_suffix('(%)')], axis=1)
-                        breakdown = indicator.breakdown[col]
-                        dfs[f'{breakdown}'] = f_df.transpose()
+                    f_df = pd.concat([count_df, percent_df.add_suffix('(%)')], axis=1)
+                    breakdown = indicator.breakdown[col]
+                    dfs[f'{breakdown}'] = f_df.transpose()
                           
-                    final_df = pd.concat(dfs, axis=0)
+                final_df = pd.concat(dfs, axis=0)
+                if indicator.var_change != None:
+                    final_df.rename(columns=indicator.var_change, inplace=True)
                 
-                with pd.ExcelWriter(file_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
-                    if dis_cols != None:
-                        final_df.to_excel(writer, sheet_name=sheet_name, merge_cells=False, index=True, header=True)
-                        startrow = final_df.shape[0] + 2
-                        overall_df.to_excel(writer, sheet_name=sheet_name, startrow=startrow, index=True, header=True)
-                    else: overall_df.to_excel(writer, sheet_name=sheet_name, index=True, header=True)
+            with pd.ExcelWriter(file_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
+                if dis_cols != None:
+                    final_df.to_excel(writer, sheet_name=sheet_name, merge_cells=False, index=True, header=True)
+                    startrow = final_df.shape[0] + 2
+                    overall_df.to_excel(writer, sheet_name=sheet_name, startrow=startrow, index=True, header=True)
+                else: overall_df.to_excel(writer, sheet_name=sheet_name, index=True, header=True)
                     
-                wb = load_workbook(file_path)
-                ws = wb[sheet_name]
-                ws.insert_rows(1)
-                ws['B1'] = var_name
-                ws['B1'].font = Font(bold=True)
-                for column in ws.columns:
-                    max_length = 0
-                    column_letter = column[0].column_letter
-                    for cell in column:
-                        try:
-                            if cell.value:
-                                max_length = max(max_length, len(str(cell.value)))
-                        except:
-                            pass
-                    adjusted_width = (max_length + 2)
-                    ws.column_dimensions[column_letter].width = adjusted_width
+            wb = load_workbook(file_path)
+            ws = wb[sheet_name]
+            ws.insert_rows(1)
+            ws['B1'] = indicator.description
+            ws['B1'].font = Font(bold=True)
+            for column in ws.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if cell.value:
+                            max_length = max(max_length, len(str(cell.value)))
+                    except:
+                        pass
+                adjusted_width = (max_length + 2)
+                ws.column_dimensions[column_letter].width = adjusted_width
         
-                wb.save(file_path)
+            wb.save(file_path)
 
     def calculation(self, indicator, method):
         """
@@ -524,7 +587,7 @@ class Data_analysis:
         if indicator.var_order != None:
             df = df.loc[indicator.var_order]
         ax = df.plot(kind='bar', stacked=False, width=0.6, figsize=figsize, color=palette)
-        title = f'{indicator.description}\nby {breakdown}'
+        title = f'{indicator.description} by {breakdown}'
         output_file = f'{file_path}_{indicator.indicator_name}_{breakdown}_count.png'
         
         ax.set_ylabel('Count')
@@ -570,11 +633,12 @@ class Data_analysis:
         labels = [''.join(label) if isinstance(label, tuple) else label for label in df.index]
         labels = [replace_spaces(label) for label in labels]
         ax.set_xticklabels(labels, rotation=rotation, fontsize=fontsize)
-        plt.legend(title=f'{breakdown} and Target', fontsize=fontsize-1)
+        plt.legend(title=f'{breakdown}', fontsize=fontsize-1)
         max_height = df.max().max()
         plt.ylim(0, max_height * 1.1)
         ax.yaxis.set_major_locator(MaxNLocator(integer=True))
         plt.savefig(output_file, bbox_inches='tight', dpi=800)
+        plt.close()
 
     def breakdown_percentage_bar(self, indicator, df, colname, file_path, figsize=(12, 8), rotation=0, fontsize=12):
         """
@@ -630,8 +694,9 @@ class Data_analysis:
         labels = [replace_spaces(label) for label in labels]
         ax.set_xticklabels(labels, rotation=rotation, fontsize=fontsize)
         plt.xticks(rotation=rotation, fontsize=fontsize)
-        plt.legend(title=f'{breakdown} and Target', fontsize=fontsize-1)
+        plt.legend(title=f'{breakdown}', fontsize=fontsize-1)
         plt.savefig(output_file, bbox_inches='tight', dpi=800)
+        plt.close()
 
     def plot_bar(self, indicator, df_, file_path, figsize=(12, 8), rotation=0, fontsize=12):
         """
@@ -707,5 +772,25 @@ class Data_analysis:
         line_handles, _ = ax.get_legend_handles_labels()
         handles = bar_handles + line_handles[:-1]
         ax.legend(handles=handles, title="Category", loc='best')
-        plt.savefig(output_file, bbox_inches='tight', dpi=800)      
+        plt.savefig(output_file, bbox_inches='tight', dpi=800)
+        plt.close()
+        
+    def evaluation(self, file_path, folder):
+        """
+        - Function to run the kap_tables function for each indicator or question
+        file_path: str, Directory where tables files will be saved
+        folder: str, Folder where plots will be saved
+        """
+        for indicator in self.indicators:
+            print(f'{indicator.name} analysis starts')
+            if indicator.var_type == 'single':
+               sheet_name = f"{indicator.indicator_name}"
+               var_name = f"{indicator.number}" 
+               self.tables(indicator, indicator.var, sheet_name, var_name, file_path, folder)
+            elif indicator.var_type == 'multi':
+                names = range(len(indicator.var))
+                for var, i in zip(indicator.var, names):
+                    sheet_name = f"{indicator.indicator_name}-{i}"
+                    var_name = f"{indicator.number}-{i}"
+                    self.tables(indicator, var, sheet_name, var_name, file_path, folder)
                     

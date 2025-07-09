@@ -54,7 +54,7 @@ class PerformanceManagementFramework:
             
         if self.ptype == 'Evaluation':
             self.tool.statistical_test(file_path2, folder)
-            self.tool.tables(file_path1, folder)
+            self.tool.evaluation(file_path1, folder)
         elif self.ptype == 'KAP':
             self.tool.statistical_test(file_path2, folder)
             self.tool.kap(file_path1, folder)

@@ -12,7 +12,7 @@ import numpy as np
 
 class Indicator:
     
-    def __init__(self, df, name, number, var, i_cal, i_type, description, period=None, target=None, s_test = None, s_group = None):
+    def __init__(self, df, name, number, var, i_cal, i_type, description, period=None, target=None, s_test = None, s_group = None, visual = True):
         """
         - Initialise the Indicator class
         name: str, Name of the indicator
@@ -30,6 +30,7 @@ class Indicator:
         kap_label: list, Labels for multi-table
         s_test: str, Type of statistical tests ('ols', 'anova', 't-test','chi')
         s_group: dic, independent variables for statistical tests {"col":"name"}
+        visual: True/False, Option for data visualisation
         """
         self.df = df
         self.name = name
@@ -57,6 +58,7 @@ class Indicator:
         self.kap_label = None
         self.s_test = s_test
         self.s_group = s_group
+        self.visual = visual
 
     def info(self):
         """
@@ -143,7 +145,7 @@ class Indicator:
         
     def add_label(self, labels):
         """
-        - Add the condition for column label change
+        - Add the condition for column label change (for KAP)
         labels: list, New column labels for the multiple response questions in the KAP survey
         """
         self.kap_label = labels

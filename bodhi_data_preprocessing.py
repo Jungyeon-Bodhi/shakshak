@@ -85,6 +85,8 @@ class Preprocessing:
         df = self.df
         list_cols = self.list_del_cols
         df = df.drop(columns = list_cols)
+        df = df[~((df['4.Burkina_Faso'] == 'Plateau Central') & 
+          (df['5-3'] == 'Peacebuilding project in Passoré Province for Conflict Transformation (4501, 6601, 6885)'))]
         print(f'Number of columns: {len(df.columns)} | After removing the columns that are not needed for the analysis')
         self.df = df
         return True
@@ -191,21 +193,27 @@ class Preprocessing:
         - To implement a dataframe anonymisation
         """
         df = self.df
-        col2 = self.anon_col2
+        cols_to_anon = self.anon_col2
         file_path = self.file_path
-    
+        
         def generate_unique_strings(prefix, series):
             unique_values = series.unique()
             key_mapping = {value: f"{prefix}{uuid.uuid4()}" for value in unique_values}
             return series.map(key_mapping), key_mapping
         
-        df[col2], respondent_mapping = generate_unique_strings('enumerator_', df[col2])
+        respondent_mappings = {}
+        
+        for col in cols_to_anon:
+            df[col], mapping = generate_unique_strings(f'{col}_', df[col])
+            respondent_mappings[col] = mapping
+        
         original = self.file_path
         self.file_path = f'{file_path}_anonymised'
         self.save_data()
         self.file_path = original
         self.df = df
-        print("The respondent name has been anonymised")
+        
+        print("The respondent names have been anonymised.")
         return True
     
     def duplicates(self):
@@ -293,6 +301,7 @@ class Preprocessing:
         """
         df = self.df
         col = self.age_col
+        df = df[df['1'] >= 17]
         bins = [16, 24, 34, 44, 54, 64, float('inf')]
         labels = ['17 - 24','25 - 34', '35 - 44', '45 - 54', '55 - 64', 'Above 65 years']
         df[col] = df[col].astype(int)
@@ -500,7 +509,7 @@ class Preprocessing:
                 for col in columns:
                     if pd.notna(row[col]):
                         score += score_map.get(row[col], 0)
-                    return score
+                return score
             df['GBV_knowledge'] = df.apply(scoring, axis=1)
             df['GBV_knowledge'] = df['GBV_knowledge'].replace(0, pd.NA)
             print('New GBV knowledge Scale variable has been created in this dataset')
@@ -531,7 +540,8 @@ class Preprocessing:
                 for col in columns:
                     if pd.notna(row[col]):
                         score += score_map.get(row[col], 0)
-                    return score
+                return score
+                
             df['QOLS'] = df.apply(scoring, axis=1)
             df['QOLS'] = df['QOLS'].replace(0, pd.NA)
             print('New Quality of Life Scale variable has been created in this dataset')
@@ -555,11 +565,13 @@ class Preprocessing:
             
             def scoring(row):
                 score = 0
-                columns = ['39', '40', '41', '42', '43','44', '45', '46', '47' '48', '49', '50', '51', '52']  
+                columns = ['39', '40', '41', '42', '43','44', '45', '46', '47','48', '49', '50', '51', '52']
+                
                 for col in columns:
                     if pd.notna(row[col]):
                         score += score_map.get(row[col], 0)
-                    return score
+                return score
+            
             df['WEMWBS'] = df.apply(scoring, axis=1)
             df['WEMWBS'] = df['WEMWBS'].replace(0, pd.NA)
             print('New Mental Well-being Scale variable has been created in this dataset')
@@ -586,45 +598,47 @@ class Preprocessing:
                       "Increased (showing understanding and respect for other groups’ opinions)":4, 
                       'Significantly increased (collaborating effectively with other groups on common goals)':5}
          
-         score_map3 = {'Yes':2, 'No':0}
-         score_map4 = {'Yes':0, 'No':2}
+         score_map3 = {'Yes': 2, 'No': pd.NA}
+         score_map4 = {'Yes': pd.NA, 'No': 2}
                   
          try:
              df['CCTD_score'] = 0
              df['CCTD1'] = 0
              df['CCTD2'] = 0
+             df['CCTD3'] = pd.NA
+             df['CCTD4'] = pd.NA
              
              def scoring1(row):
-                 score = 0
+                 score1 = 0
                  columns = ['22']  
                  for col in columns:
                      if pd.notna(row[col]):
-                         score += score_map1.get(row[col], 0)
-                     return score
+                         score1 += score_map1.get(row[col], 0)
+                 return score1
                  
              def scoring2(row):
-                 score = 0
+                 score2 = 0
                  columns = ['23']  
                  for col in columns:
                      if pd.notna(row[col]):
-                         score += score_map2.get(row[col], 0)
-                     return score
+                         score2 += score_map2.get(row[col], 0)
+                 return score2
                  
              def scoring3(row):
-                 score = 0
-                 columns = ['33','35','36']  
+                 score3 = 0
+                 columns = ['33','35']  
                  for col in columns:
                      if pd.notna(row[col]):
-                         score += score_map3.get(row[col], 0)
-                     return score
+                         score3 += score_map3.get(row[col], 0)
+                 return score3
                  
              def scoring4(row):
-                 score = 0
+                 score4 = 0
                  columns = ['24']  
                  for col in columns:
                      if pd.notna(row[col]):
-                         score += score_map4.get(row[col], 0)
-                     return score
+                         score4 += score_map4.get(row[col], 0)
+                 return score4
                  
              df['CCTD1'] = df.apply(scoring1, axis=1)
              df['CCTD2'] = df.apply(scoring2, axis=1)
@@ -641,9 +655,29 @@ class Preprocessing:
 
     def grouping(self):
         df = self.df
+        df['4'] = df[['4.Burundi','4.Burkina_Faso', '4.Mali']].bfill(axis=1).iloc[:, 0]
+        df['Enumerator'] = df[['4-2.Burkina','4-2.Mali', 'Enumerator Name1','Enumerator Name2']].bfill(axis=1).iloc[:, 0]
         df['5'] = df[['5-1', '5-2', '5-3']].bfill(axis=1).iloc[:, 0]
+        df['7'] = df[['7-0-1', '7-0-2']].bfill(axis=1).iloc[:, 0]
         df['11'] = df[['11-1', '11-3']].bfill(axis=1).iloc[:, 0]
         self.df = df
+        
+    def project_update(self):
+        df = self.df
+    
+        col = '5-3'
+    
+        replacements = {
+            r'^Year [12] - Peacebuilding project in Passoré Province for Conflict Transformation \(4501, 6601, 6885\)$':
+                'Peacebuilding project in Passoré Province for Conflict Transformation (4501, 6601, 6885)',
+            r'^Year [123] - Food and Nutritional Resilience Project Year 1 \(4402, 6184, 6882\)$':
+                'Food and Nutritional Resilience Project (4402, 6184, 6882)',}
+    
+        for pattern, replacement in replacements.items():
+            df[col] = df[col].str.replace(pattern, replacement, regex=True)
+    
+        self.df = df
+        return True
 
     def interventions(self):
         """
@@ -660,12 +694,20 @@ class Preprocessing:
                 "Environment Restoration for Innovative Community Entrepreneurship(ERICEP) (2705) (Mutaho I)",
                 "Engaging the youth and faith leaders in peacebuilding; prevention and response to SGBV for peaceful coexistence (4535)",
                 "Artisanes de Paix: Setting inclusive Peacebuilding Networks in Tanganyika and addressing land issues (4280)",
-                "Commitment of young people and religious leaders for peaceful cohabitation and transformation (6205)"]
+                "Commitment of young people and religious leaders for peaceful cohabitation and transformation (6205)",
+                "Peacebuilding project in Passoré Province for Conflict Transformation (4501, 6601, 6885)",
+                "Food and Nutritional Resilience Project (4402, 6184, 6882)",
+                "Souter Project for the promotion of peace and gender positive norms in Zorgho and Boudry communities (6423)"]
+     
         j2h = ["Diocese de Matana, Development Programme (2695) (Matana II)",
                 "Integrated Sexual and gender Based Violence Project (3391)",
                 "Integrated Sexual and gender Based Violence Project (3394) (Rumonge I)",
                 "Integrated Fragile States Programme in Burundi (4107) (All)",
-                "Environment Restoration for Innovative Community Entrepreneurship(ERICEP) (2705) (Mutaho I)"]
+                "Environment Restoration for Innovative Community Entrepreneurship(ERICEP) (2705) (Mutaho I)",
+                "Projet Multisectoriel pour l’amélioration des conditions de vie et la promotion de la santé de la femme, de la jeune fille et de l’enfant à Kayes",
+                "Projet de renforcement et d'amélioration des conditions de vie sociale et de santé des populations les plus vulnérables à Kayes",
+                "Project for the Reduction of SGBV/FGM/MP and the Strengthening of Gender Relations"]
+        
         tm = ["WA STAY Project - Mali (4192)",
               "Integrated Sexual and gender Based Violence Project (3391)",
                 "Integrated Sexual and gender Based Violence Project (3394) (Rumonge I)",
@@ -673,7 +715,9 @@ class Preprocessing:
                 "Environment Restoration for Innovative Community Entrepreneurship(ERICEP) (2705) (Mutaho I)",
                 "Engaging the youth and faith leaders in peacebuilding; prevention and response to SGBV for peaceful coexistence (4535)",
                 "Artisanes de Paix: Setting inclusive Peacebuilding Networks in Tanganyika and addressing land issues (4280)",
-                "Commitment of young people and religious leaders for peaceful cohabitation and transformation (6205)"]
+                "Commitment of young people and religious leaders for peaceful cohabitation and transformation (6205)",
+                "Souter Project for the promotion of peace and gender positive norms in Zorgho and Boudry communities (6423)",
+                "Project for the Reduction of SGBV/FGM/MP and the Strengthening of Gender Relations"]
 
         df['CCTD'] = df['5'].apply(lambda row: 1 if any(project in row for project in cctd) else 0)
         df['J2H'] = df['5'].apply(lambda row: 1 if any(project in row for project in j2h) else 0)
@@ -698,6 +742,21 @@ class Preprocessing:
         df.loc[(df['i_group'].str.contains('J', na=False)) & (df['i_type'] == 'Isolation'),'participation_j2h'] = "J (Isolation)"
         self.df = df
         
+    def knowledge_comp(self):
+        df = self.df
+        conditions_participation = ['CJ', 'CJT', 'JT', 'J']
+        conditions_non_participation = ['C', 'CT']
+        def classify(row):
+            if pd.notna(row['GBV_knowledge']):
+                if row['i_group'] in conditions_participation:
+                    return 'Participation'
+                elif row['i_group'] in conditions_non_participation:
+                    return 'Non-participation'
+            return np.nan
+        
+        df['Knowledge_comp'] = df.apply(classify, axis=1)
+        self.df = df
+        
     def processing(self):
         """
         - To conduct data pre-processing
@@ -718,9 +777,11 @@ class Preprocessing:
         self.data_load()
         self.qc_checklist() 
         self.columns_redefine()
+        self.project_update()
+        self.grouping()
         print(f'Initial data points: {len(self.df)}')
-        self.duplicates()
         self.data_anonymisation()
+        self.duplicates()
         if len(self.dates) != 0:
             self.date_filter()
         print(f'Initial number of columns: {len(self.df.columns)}')
@@ -731,7 +792,6 @@ class Preprocessing:
             self.age_group()
         if self.diss_cols != None:
             self.disability_wgss()
-        self.grouping()
         self.interventions()
         self.intervention_group()
         self.cctd()
@@ -740,6 +800,7 @@ class Preprocessing:
         self.GBV_knowledge()
         self.gbv_social_norm()
         self.gbv_personal_beliefs()
+        self.knowledge_comp()
         original = self.file_path
         self.file_path = f'{self.file_path}_cleaned'
         self.save_data()
