@@ -127,32 +127,6 @@ def descriptive_statistics(df, indicators):
     intervention_type.add_breakdown({'2':'Gender', 'Age Group':'Age group',  "Disability":"Disability"})
     intervention_type.add_var_order(['Integration', 'Isolation'])
     indicators.append(intervention_type)
-    
-    cctd1 = bd.Indicator(df, "CCTD1", 0, ['22'], i_cal=None, i_type='count', description='To what extent has the level of trust between previously divided groups in your community increased over the last six months?', period='endline', target = None)
-    cctd1.add_breakdown({'3':'Country', '2':'Gender', 'Age Group':'Age group',  '10':"Religion", "Disability":"Disability"})
-    cctd1.add_var_order(['Not at all', 
-                         'Slightly increased (willing to attend joint meetings with other groups)',
-                         "Somewhat increased (willing to communicate with other groups)",
-                         "Increased (understand and respect to other groups)",
-                         "Significantly increased (able to collaborate with other groups)"])
-    indicators.append(cctd1)
-    
-    cctd2 = bd.Indicator(df, "CCTD2", 0, ['23'], i_cal=None, i_type='count', description='To what extent has the level of constructive engagement between previously divided groups increased over the last six months?', period='endline', target = None)
-    cctd2.add_breakdown({'3':'Country', '2':'Gender', 'Age Group':'Age group',  '10':"Religion", "Disability":"Disability"})
-    cctd2.add_var_order(['Not at all', 
-                         "Slightly increased (willing to attend joint discussions with other groups)",
-                         "Somewhat increased (willing to engage in open dialogue with other groups)",
-                         "Increased (showing understanding and respect for other groups’ opinions)",
-                         "Significantly increased (collaborating effectively with other groups on common goals)"])
-    indicators.append(cctd2)
-    
-    cctd3 = bd.Indicator(df, "CCTD3", 0, ['24'], i_cal=None, i_type='count', description='In your opinion, do you believe violence is ever justified as a means of conflict resolution?', period='endline', target = None)
-    cctd3.add_breakdown({'3':'Country', '2':'Gender', 'Age Group':'Age group',  '10':"Religion", "Disability":"Disability"})
-    cctd3.add_var_order(['Yes', 
-                         "No"])
-    indicators.append(cctd3)
-    
-    
     return indicators
     
 
